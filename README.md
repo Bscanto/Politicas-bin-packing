@@ -63,7 +63,7 @@ git clone URL_DO_REPOSITORIO
 Entre na pasta:
 
 ```bash
-cd Torneio_de_Politicas_Bin_Packing
+cd Politicas_Bin_Packing
 ```
 
 
