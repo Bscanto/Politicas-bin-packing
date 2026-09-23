@@ -66,11 +66,6 @@ Entre na pasta:
 cd Torneio_de_Politicas_Bin_Packing
 ```
 
-Instale as dependências:
-
-```bash
-pip install -r requirements.txt
-```
 
 Execute a aplicação:
 
