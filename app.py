@@ -6,31 +6,21 @@ from utils.avaliacao import comparar_politicas
 from politicas.first_fit import FirstFit
 from politicas.first_fit_decreasing import FirstFitDecreasing
 from politicas.best_fit import BestFit
+from politicas.completa_exata import CompletaExataVisual
 
-
-# ============================================================
-# CONFIGURAÇÃO DA PÁGINA
-# ============================================================
 
 st.set_page_config(
-    page_title="Simulador de Empacotamento",
+    page_title="Simulador Visual de Bin Packing",
     page_icon="📦",
     layout="wide"
 )
 
-
-# ============================================================
-# ESTADO DA APLICAÇÃO
-# ============================================================
 
 if "passos" not in st.session_state:
     st.session_state.passos = []
 
 if "passo_atual" not in st.session_state:
     st.session_state.passo_atual = 0
-
-if "executando" not in st.session_state:
-    st.session_state.executando = False
 
 if "politica_atual" not in st.session_state:
     st.session_state.politica_atual = ""
@@ -39,39 +29,24 @@ if "resultados_comparacao" not in st.session_state:
     st.session_state.resultados_comparacao = []
 
 
-# ============================================================
-# FUNÇÃO PARA CRIAR A POLÍTICA
-# ============================================================
-
 def criar_politica(nome):
-
     if nome == "First Fit":
         return FirstFit()
-
     if nome == "First Fit Decreasing":
         return FirstFitDecreasing()
-
     if nome == "Best Fit":
         return BestFit()
+    if nome == "Completa Exata (Visual)":
+        return CompletaExataVisual()
+    raise ValueError("Política desconhecida.")
 
-    raise ValueError(
-        "Política desconhecida."
-    )
 
-
-# ============================================================
-# FUNÇÃO PARA OBTER RESULTADOS DA COMPARAÇÃO
-# ============================================================
-
-def obter_resultados_comparacao(
-    itens,
-    capacidade
-):
-
+def obter_resultados_comparacao(itens, capacidade):
     politicas = {
         "First Fit": FirstFit(),
         "First Fit Decreasing": FirstFitDecreasing(),
-        "Best Fit": BestFit()
+        "Best Fit": BestFit(),
+        "Completa Exata": CompletaExataVisual(),
     }
 
     return comparar_politicas(
@@ -81,87 +56,41 @@ def obter_resultados_comparacao(
     )
 
 
-# ============================================================
-# INICIAR SIMULAÇÃO
-# ============================================================
-
-def iniciar_simulacao(
-    itens,
-    capacidade,
-    politica,
-    nome_politica
-):
-
+def iniciar_simulacao(itens, capacidade, politica, nome_politica):
     st.session_state.passos = gerar_passos(
         itens,
         capacidade,
         politica
     )
-
     st.session_state.passo_atual = 0
+    st.session_state.politica_atual = nome_politica
 
-    st.session_state.politica_atual = (
-        nome_politica
-    )
-
-
-# ============================================================
-# RESETAR SIMULAÇÃO
-# ============================================================
 
 def resetar():
-
     st.session_state.passos = []
-
     st.session_state.passo_atual = 0
-
-    st.session_state.executando = False
-
     st.session_state.politica_atual = ""
-
     st.session_state.resultados_comparacao = []
 
 
-# ============================================================
-# TÍTULO
-# ============================================================
-
-st.title(
-    "📦 Simulador de Empacotamento"
-)
-
+st.title("📦 Simulador Visual de Bin Packing")
 st.write(
-    "Simulador visual para análise de políticas "
-    "de alocação em problemas de empacotamento."
+    "Visualize heurísticas clássicas e a política Completa Exata, "
+    "incluindo Lower Bound, Upper Bound, bitsets e busca exata."
 )
 
 
-# ============================================================
-# SIDEBAR
-# ============================================================
-
-st.sidebar.header(
-    "⚙️ Configuração"
-)
-
-
-# ------------------------------------------------------------
-# Política
-# ------------------------------------------------------------
+st.sidebar.header("⚙️ Configuração")
 
 nome_politica = st.sidebar.selectbox(
     "Política de alocação",
     [
         "First Fit",
         "First Fit Decreasing",
-        "Best Fit"
+        "Best Fit",
+        "Completa Exata (Visual)",
     ]
 )
-
-
-# ------------------------------------------------------------
-# Capacidade
-# ------------------------------------------------------------
 
 capacidade = st.sidebar.number_input(
     "Capacidade da caixa",
@@ -170,606 +99,368 @@ capacidade = st.sidebar.number_input(
     step=1
 )
 
-
-# ------------------------------------------------------------
-# Itens
-# ------------------------------------------------------------
-
 texto_itens = st.sidebar.text_input(
     "Itens",
     value="2, 5, 7, 8, 3, 4, 6, 1, 9, 5"
 )
 
 
-# ============================================================
-# BOTÃO — INICIAR SIMULAÇÃO
-# ============================================================
+def ler_itens():
+    itens = [
+        int(x.strip())
+        for x in texto_itens.split(",")
+        if x.strip()
+    ]
+
+    if not itens:
+        raise ValueError("Informe pelo menos um item.")
+
+    if any(item <= 0 for item in itens):
+        raise ValueError("Todos os itens devem ser maiores que zero.")
+
+    if any(item > capacidade for item in itens):
+        raise ValueError(
+            "Existe um item maior que a capacidade da caixa."
+        )
+
+    return itens
+
 
 if st.sidebar.button(
     "▶ Iniciar simulação",
     use_container_width=True
 ):
-
     try:
-
-        # ----------------------------------------------------
-        # Converte os itens para números
-        # ----------------------------------------------------
-
-        itens = [
-            int(x.strip())
-            for x in texto_itens.split(",")
-            if x.strip()
-        ]
-
-
-        # ----------------------------------------------------
-        # Validação
-        # ----------------------------------------------------
-
-        if not itens:
-
-            st.error(
-                "Informe pelo menos um item."
-            )
-
-        elif any(
-            item <= 0
-            for item in itens
-        ):
-
-            st.error(
-                "Todos os itens devem ser maiores que zero."
-            )
-
-        elif any(
-            item > capacidade
-            for item in itens
-        ):
-
-            st.error(
-                "Existe um item maior que a capacidade da caixa."
-            )
-
-        else:
-
-            # ------------------------------------------------
-            # Cria a política
-            # ------------------------------------------------
-
-            politica = criar_politica(
-                nome_politica
-            )
-
-
-            # ------------------------------------------------
-            # Inicia a simulação
-            # ------------------------------------------------
-
-            iniciar_simulacao(
-                itens,
-                capacidade,
-                politica,
-                nome_politica
-            )
-
-            st.rerun()
-
-
-    except ValueError:
-
-        st.error(
-            "Digite os itens separados por vírgula."
+        itens = ler_itens()
+        politica = criar_politica(nome_politica)
+        iniciar_simulacao(
+            itens,
+            capacidade,
+            politica,
+            nome_politica
         )
+        st.rerun()
 
+    except ValueError as e:
+        st.error(str(e))
 
-# ============================================================
-# BOTÃO — COMPARAR POLÍTICAS
-# ============================================================
 
 if st.sidebar.button(
     "📊 Comparar políticas",
     use_container_width=True
 ):
-
     try:
-
-        # ----------------------------------------------------
-        # Converte os itens
-        # ----------------------------------------------------
-
-        itens = [
-            int(x.strip())
-            for x in texto_itens.split(",")
-            if x.strip()
-        ]
-
-
-        # ----------------------------------------------------
-        # Validação
-        # ----------------------------------------------------
-
-        if not itens:
-
-            st.error(
-                "Informe pelo menos um item."
+        itens = ler_itens()
+        st.session_state.resultados_comparacao = (
+            obter_resultados_comparacao(
+                itens,
+                capacidade
             )
-
-        elif any(
-            item <= 0
-            for item in itens
-        ):
-
-            st.error(
-                "Todos os itens devem ser maiores que zero."
-            )
-
-        elif any(
-            item > capacidade
-            for item in itens
-        ):
-
-            st.error(
-                "Existe um item maior que a capacidade da caixa."
-            )
-
-        else:
-
-            # ------------------------------------------------
-            # Executa todas as políticas
-            # ------------------------------------------------
-
-            resultados = (
-                obter_resultados_comparacao(
-                    itens,
-                    capacidade
-                )
-            )
-
-
-            # ------------------------------------------------
-            # Salva os resultados
-            # ------------------------------------------------
-
-            st.session_state.resultados_comparacao = (
-                resultados
-            )
-
-            st.rerun()
-
-
-    except ValueError:
-
-        st.error(
-            "Digite os itens separados por vírgula."
         )
+        st.rerun()
 
+    except ValueError as e:
+        st.error(str(e))
 
-# ============================================================
-# ÁREA PRINCIPAL — SIMULAÇÃO
-# ============================================================
 
 if st.session_state.passos:
-
     passos = st.session_state.passos
-
     indice = st.session_state.passo_atual
-
     passo = passos[indice]
-
-    caixas = passo["caixas"]
-
-
-    # ========================================================
-    # INFORMAÇÕES DA SIMULAÇÃO
-    # ========================================================
+    caixas = passo.get("caixas", [])
 
     st.subheader(
-        f"Política: "
-        f"{st.session_state.politica_atual}"
+        f"Política: {st.session_state.politica_atual}"
     )
 
     st.caption(
         f"Passo {indice + 1} de {len(passos)}"
     )
 
+    tipo = passo.get("tipo", "")
 
-    # ========================================================
-    # MENSAGEM DO PASSO
-    # ========================================================
+    if tipo in {
+        "lower_bound",
+        "upper_bound",
+        "bitset",
+        "tentativa_k",
+        "solucao_k",
+        "otimo",
+        "final",
+    }:
+        st.info(passo["mensagem"])
+    elif tipo == "backtrack":
+        st.warning(passo["mensagem"])
+    else:
+        st.write(passo["mensagem"])
 
-    st.info(
-        passo["mensagem"]
-    )
+    # Painel didático exclusivo da política completa.
+    if st.session_state.politica_atual == "Completa Exata (Visual)":
+        lb = passo.get("lower_bound")
+        ub = passo.get("upper_bound")
 
+        c1, c2, c3 = st.columns(3)
 
-    # ========================================================
-    # ITEM ATUAL
-    # ========================================================
+        with c1:
+            st.metric(
+                "Lower Bound (LB)",
+                lb if lb is not None else "-"
+            )
 
-    if passo["item"] is not None:
+        with c2:
+            st.metric(
+                "Upper Bound (UB)",
+                ub if ub is not None else "-"
+            )
 
+        with c3:
+            k = passo.get("k")
+            st.metric(
+                "K em teste",
+                k if k is not None else "-"
+            )
+
+        if passo.get("somas") is not None:
+            st.subheader("🧠 Somas alcançáveis")
+            st.write(
+                "A programação dinâmica com bitset indica quais "
+                "somas podem ser formadas pelos itens."
+            )
+            st.code(
+                str(passo["somas"]),
+                language="text"
+            )
+
+        if passo.get("pode_completar_exato") is not None:
+            if passo["pode_completar_exato"]:
+                st.success(
+                    "Existe uma combinação dos itens restantes "
+                    "capaz de preencher exatamente a sobra desta caixa."
+                )
+            else:
+                st.caption(
+                    "Nenhuma combinação dos itens restantes preenche "
+                    "exatamente esta sobra. A busca ainda pode continuar "
+                    "porque uma caixa não precisa ficar cheia."
+                )
+
+    if passo.get("item") is not None:
         col1, col2 = st.columns(2)
 
         with col1:
-
             st.metric(
                 "📦 Item atual",
                 passo["item"]
             )
 
         with col2:
-
             st.metric(
-                "🏗️ Caixas atuais",
+                "🏗️ Caixas visíveis",
                 len(caixas)
             )
 
-
-    # ========================================================
-    # CAIXAS
-    # ========================================================
-
-    st.subheader(
-        "📦 Caixas"
-    )
-
+    st.subheader("📦 Caixas")
 
     if caixas:
-
         quantidade_colunas = min(
-            len(caixas),
+            max(len(caixas), 1),
             4
         )
-
-        colunas = st.columns(
-            quantidade_colunas
-        )
-
+        colunas = st.columns(quantidade_colunas)
 
         for i, caixa in enumerate(caixas):
-
             coluna = colunas[
                 i % quantidade_colunas
             ]
 
             total = sum(caixa)
-
-            restante = (
-                capacidade - total
-            )
-
+            restante = capacidade - total
             utilizacao = (
                 total / capacidade
                 if capacidade > 0
                 else 0
             )
 
-
             with coluna:
-
                 st.markdown(
                     f"### Caixa {i + 1}"
                 )
-
-
                 st.write(
                     f"Itens: `{caixa}`"
                 )
-
-
                 st.progress(
-                    min(
-                        utilizacao,
-                        1.0
-                    )
+                    min(max(utilizacao, 0.0), 1.0)
                 )
-
-
                 st.write(
                     f"**{total} / {capacidade}**"
                 )
-
-
                 st.caption(
                     f"Espaço restante: {restante}"
                 )
-
-
     else:
-
         st.write(
-            "Nenhuma caixa criada ainda."
+            "Nenhuma caixa montada neste passo."
         )
 
-
-    # ========================================================
-    # ESTATÍSTICAS
-    # ========================================================
-
-    st.subheader(
-        "📊 Estatísticas"
-    )
-
+    st.subheader("📊 Estatísticas do passo")
 
     total_utilizado = sum(
         sum(caixa)
         for caixa in caixas
     )
-
-
     numero_caixas = len(caixas)
-
-
     espaco_total = (
         numero_caixas * capacidade
     )
-
-
     desperdicio = (
         espaco_total - total_utilizado
     )
-
-
-    if espaco_total > 0:
-
-        utilizacao_total = (
-            total_utilizado
-            / espaco_total
-            * 100
-        )
-
-    else:
-
-        utilizacao_total = 0
-
-
-    col1, col2, col3, col4 = (
-        st.columns(4)
+    utilizacao_total = (
+        total_utilizado / espaco_total * 100
+        if espaco_total > 0
+        else 0
     )
 
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-
         st.metric(
             "📦 Caixas",
             numero_caixas
         )
 
-
     with col2:
-
         st.metric(
             "📊 Utilização",
             f"{utilizacao_total:.1f}%"
         )
 
-
     with col3:
-
         st.metric(
             "🗑️ Desperdício",
             desperdicio
         )
 
-
     with col4:
-
         st.metric(
             "📐 Capacidade total",
             espaco_total
         )
 
+    st.subheader("🎮 Controles")
 
-    # ========================================================
-    # CONTROLES
-    # ========================================================
-
-    st.subheader(
-        "🎮 Controles"
-    )
-
-
-    col1, col2, col3 = (
-        st.columns(3)
-    )
-
-
-    # --------------------------------------------------------
-    # ANTERIOR
-    # --------------------------------------------------------
+    col1, col2, col3 = st.columns(3)
 
     with col1:
-
-        anterior = st.button(
+        if st.button(
             "◀ Anterior",
             use_container_width=True
-        )
-
-
-        if anterior:
-
-            if (
-                st.session_state.passo_atual
-                > 0
-            ):
-
+        ):
+            if st.session_state.passo_atual > 0:
                 st.session_state.passo_atual -= 1
-
                 st.rerun()
-
-
-    # --------------------------------------------------------
-    # PRÓXIMO
-    # --------------------------------------------------------
 
     with col2:
-
-        proximo = st.button(
+        if st.button(
             "Próximo ▶",
             use_container_width=True
-        )
-
-
-        if proximo:
-
+        ):
             if (
                 st.session_state.passo_atual
-                < len(
-                    st.session_state.passos
-                ) - 1
+                < len(passos) - 1
             ):
-
                 st.session_state.passo_atual += 1
-
                 st.rerun()
 
-
-    # --------------------------------------------------------
-    # REINICIAR
-    # --------------------------------------------------------
-
     with col3:
-
-        reiniciar = st.button(
+        if st.button(
             "🔄 Reiniciar",
             use_container_width=True
-        )
-
-
-        if reiniciar:
-
+        ):
             resetar()
-
             st.rerun()
 
-
-    # ========================================================
-    # PROGRESSO
-    # ========================================================
-
-    progresso = (
-        (indice + 1)
-        / len(passos)
-    )
-
-
     st.progress(
-        progresso
+        (indice + 1) / len(passos)
     )
-
 
 else:
-
     st.info(
         "Configure os parâmetros na barra lateral "
         "e clique em **Iniciar simulação**."
     )
 
-
     st.markdown(
         """
         ### 🧠 Políticas disponíveis
 
-        **First Fit**
-
+        **First Fit**  
         Coloca o item na primeira caixa onde ele couber.
 
-        **First Fit Decreasing**
+        **First Fit Decreasing**  
+        Ordena os itens do maior para o menor e aplica First Fit.
 
-        Ordena os itens do maior para o menor e utiliza
-        a estratégia First Fit.
+        **Best Fit**  
+        Escolhe a caixa que deixa a menor sobra.
 
-        **Best Fit**
-
-        Coloca o item na caixa que deixa o menor espaço
-        restante possível.
+        **Completa Exata (Visual)**  
+        Calcula o Lower Bound, obtém um Upper Bound com BFD,
+        calcula somas alcançáveis com bitsets e usa busca exata
+        para tentar chegar ao menor número possível de caixas.
         """
     )
 
 
-# ============================================================
-# COMPARAÇÃO DAS POLÍTICAS
-# ============================================================
-
 if st.session_state.resultados_comparacao:
-
     st.divider()
-
-    st.header(
-        "📊 Comparação das Políticas"
-    )
-
-    st.write(
-        "Todas as políticas foram executadas "
-        "sobre a mesma instância."
-    )
-
+    st.header("📊 Comparação das Políticas")
 
     resultados = (
         st.session_state.resultados_comparacao
     )
 
-
-    # ========================================================
-    # CARTÕES DAS POLÍTICAS
-    # ========================================================
-
     colunas = st.columns(
         len(resultados)
     )
-
 
     for coluna, resultado in zip(
         colunas,
         resultados
     ):
-
         with coluna:
-
             st.subheader(
                 resultado["politica"]
             )
-
-
             st.metric(
                 "📦 Caixas",
                 resultado["numero_caixas"]
             )
-
-
             st.metric(
                 "📊 Utilização",
                 f'{resultado["utilizacao"]:.2f}%'
             )
-
-
             st.metric(
                 "🗑️ Desperdício",
                 resultado["desperdicio"]
             )
-
-
             st.metric(
                 "⏱️ Tempo",
                 f'{resultado["tempo"]:.3f} ms'
             )
 
+            if resultado.get("lower_bound") is not None:
+                st.caption(
+                    f"LB: {resultado['lower_bound']} | "
+                    f"UB: {resultado['upper_bound']} | "
+                    f"Ótimo: "
+                    f"{'sim' if resultado['otimo_comprovado'] else 'não'}"
+                )
 
-    # ========================================================
-    # TABELA COMPARATIVA
-    # ========================================================
-
-    st.subheader(
-        "📋 Tabela comparativa"
-    )
-
+    st.subheader("📋 Tabela comparativa")
 
     dados_tabela = []
 
-
     for resultado in resultados:
-
         dados_tabela.append(
             {
                 "Política": resultado["politica"],
@@ -779,13 +470,19 @@ if st.session_state.resultados_comparacao:
                     2
                 ),
                 "Desperdício": resultado["desperdicio"],
-                "Tempo (s)": round(
+                "Tempo (ms)": round(
                     resultado["tempo"],
                     6
-                )
+                ),
+                "LB": resultado.get("lower_bound"),
+                "UB": resultado.get("upper_bound"),
+                "Ótimo comprovado": (
+                    resultado.get(
+                        "otimo_comprovado"
+                    )
+                ),
             }
         )
-
 
     st.dataframe(
         dados_tabela,
@@ -793,16 +490,7 @@ if st.session_state.resultados_comparacao:
         hide_index=True
     )
 
-
-    # ========================================================
-    # INSTÂNCIA UTILIZADA
-    # ========================================================
-
-    st.subheader(
-        "🧪 Instância utilizada"
-    )
-
-
+    st.subheader("🧪 Instância utilizada")
     st.code(
         f"Capacidade: {capacidade}\n"
         f"Itens: {texto_itens}",
