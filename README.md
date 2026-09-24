@@ -58,7 +58,7 @@ Para cada item, procura a caixa que deixe o menor espaço residual possível dep
 
 ### Completa Exata (Visual)
 
-A política **Completa Exata (Visual)** segue um fluxo inspirado na política `group_xx.py`, adaptado para o simulador.
+A política **Completa Exata (Visual)** segue um fluxo inspirado na política, adaptado para o simulador.
 
 Fluxo geral:
 
